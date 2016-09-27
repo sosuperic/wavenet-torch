@@ -13,16 +13,24 @@ local preprocess = {}
 local PARAMS = {}
 
 PARAMS['vctk'] = {}
-PARAMS['vctk']['PERC_TRAIN'] = 0.98
-PARAMS['vctk']['PERC_VALID'] = 0.01
-PARAMS['vctk']['PERC_TEST'] = 0.01
+PARAMS['vctk']['PERC_TRAIN'] = 0.8
+PARAMS['vctk']['PERC_VALID'] = 0.1
+PARAMS['vctk']['PERC_TEST'] = 0.1
 PARAMS['vctk']['WAV_PATH'] = 'data/vctk/wav48/'
--- PARAMS['vctk']['OUT_PATH'] = 'data/processed/vctk/split_main' -- 0.8, 0.1, 0.1
-PARAMS['vctk']['OUT_PATH'] = 'data/processed/vctk/split_98' -- 0.98, 0.01, 0.01
+PARAMS['vctk']['OUT_PATH'] = 'data/processed/vctk/split_main' -- 0.8, 0.1, 0.1
+-- PARAMS['vctk']['OUT_PATH'] = 'data/processed/vctk/split_98' -- 0.98, 0.01, 0.01
 
 ------------------------------------------------------------------------------------------------------------
 -- Data splitting into train, valid, text
 ------------------------------------------------------------------------------------------------------------
+function preprocess.sort_split_by_length(split)
+    local function sorter(a,b)
+        if (a[3] < b[3]) then return true else return false end
+    end
+    table.sort(split, sorter)
+    return split
+end
+
 function preprocess.write_split_to_file(tbl, fn)
     local f = io.open(fn, 'w')
     for i=1,#tbl do
@@ -66,6 +74,9 @@ function preprocess.split_helper(perc_tr, perc_va, perc_te, wav_path, out_path)
 
     -- Save to files
     utils.make_dir_if_not_exists(out_path)
+    tr = preprocess.sort_split_by_length(tr)
+    va = preprocess.sort_split_by_length(va)
+    te = preprocess.sort_split_by_length(te)
     preprocess.write_split_to_file(tr, path.join(out_path, 'train.txt'))
     preprocess.write_split_to_file(va, path.join(out_path, 'valid.txt'))
     preprocess.write_split_to_file(te, path.join(out_path, 'test.txt'))

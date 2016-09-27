@@ -4,6 +4,8 @@ require 'optim'
 require 'socket'
 require 'pl'
 require 'csvigo'
+require 'audio'
+require 'hdf5'
 local utils = require 'utils.lua_utils'
 
 local network = {}
@@ -183,6 +185,7 @@ function network:generate(opt)
     local cmd_path = path.join('models', opt.dataset, opt.experiment, opt.load_model_dir, 'cmd.csv')
     local traintime_opt = utils.read_cmd_csv(cmd_path)
     local net = torch.load(model_path)
+    print('model loaded')
     self.nets = {}
     self.criterions = {}
     self.engines = {}
@@ -196,12 +199,15 @@ function network:generate(opt)
     -- Create output sequentially
     outputs = {}
     local num_samples = opt.gen_length
+    local start_time = os.clock()
     local wavenet_utils = require 'utils.wavenet_utils'
     for i=1,num_samples do
+        if i % 100 == 0 then
+            print(i)
+        end
         local activations = net:forward(x)
-        -- Get bin
-        local _, bin = torch.max(activations, 2)
-        bin = bin[1][1]
+        local _, bin = torch.max(activations[1][opt.receptive_field_size], 1)
+        bin = bin[1]
         -- Decode through inverse mu-law
         local output_val = wavenet_utils.decode(torch.Tensor({bin}), traintime_opt.mu, traintime_opt.max_val_for_quant)[1]
         -- Create next input by shifting and appending output
@@ -209,7 +215,12 @@ function network:generate(opt)
         x[1][1][1][traintime_opt.receptive_field_size] = output_val
         table.insert(outputs, output_val)
     end
-    print(outputs)
+    local end_time = os.clock()
+    print(string.format('%.2f minutes', (end_time - start_time) / 60))
+    outputs = torch.Tensor(outputs)     -- (len,)
+    outputs = outputs:reshape(outputs:size(1),1)  -- (len,1)
+    audio.save('nocond.wav', outputs, 16000)
+
 end
 
 ------------------------------------------------------------------------------------------------
